@@ -20,7 +20,7 @@ struct Card {
     suit: Suit,
 }
 
-#[derive(PartialEq, EnumIter)]
+#[derive(PartialEq, EnumIter, Debug)]
 enum HandType {
     StraightFlush,
     FourOfAKind,
@@ -33,6 +33,7 @@ enum HandType {
     HighCard,
 }
 
+#[derive(Debug)]
 struct Hand<'a> {
     tie_breaker: Vec<u8>,
     input_string: &'a str,
@@ -48,11 +49,23 @@ pub fn winning_hands<'a>(hands: &[&'a str]) -> Option<Vec<&'a str>> {
 
     for hand_type in HandType::iter() {
         if parsed_hands.iter().any(|h| h.hand_type == hand_type) {
-            let mut winning_hands: Vec<&Hand> = parsed_hands.iter().filter(|h| h.hand_type == hand_type).collect();
+            let mut winning_hands: Vec<&Hand> = parsed_hands
+                .iter()
+                .filter(|h| h.hand_type == hand_type)
+                .collect();
+
+            // tie breaker
             winning_hands.sort_by_key(|h| &h.tie_breaker);
-            let winning_tie_breaker: &Vec<u8> = winning_hands.first().unwrap().tie_breaker.as_ref();
-            let tie_brocken_hands: Vec<&&Hand> = winning_hands.iter().filter(|h| &h.tie_breaker == winning_tie_breaker).collect();
-            let winning_strings: Vec<&'a str> = tie_brocken_hands.iter().map(|h| h.input_string).collect();
+            let winning_tie_breaker: &Vec<u8> = winning_hands.last().unwrap().tie_breaker.as_ref();
+
+            let tie_brocken_hands: Vec<&&Hand> = winning_hands
+                .iter()
+                .filter(|h| &h.tie_breaker == winning_tie_breaker)
+                .collect();
+
+            // return input string of the winning hands
+            let winning_strings: Vec<&'a str> =
+                tie_brocken_hands.iter().map(|h| h.input_string).collect();
             return Some(winning_strings);
         }
     }
