@@ -1,5 +1,11 @@
-use std::str::FromStr;
+use std::collections::{HashMap, HashSet};
 
+const ACE_VALUE: u8 = 14;
+const KING_VALUE: u8 = 13;
+const QUEEN_VALUE: u8 = 12;
+const JACK_VALUE: u8 = 11;
+
+#[derive(Eq, Hash, PartialEq)]
 enum Suit {
     Spade,
     Club,
@@ -51,7 +57,37 @@ fn parse_hand<'a>(hand_str: &'a str) -> Hand {
     // characterise hand
     // - count cards of a kind
     // - identify straights and flushes
+
     cards.sort_by_key(|c| c.value);
+    let mut prev_value: u8 = 1;
+
+    let mut suits: HashSet<Suit> = HashSet::new();
+    let mut of_a_kinds: HashMap<u8, u8> = HashMap::new();
+    let mut is_straight = true;
+
+    for card in cards {
+        // flush
+        suits.insert(card.suit);
+
+        // pairs/of a kind
+        if prev_value == card.value {
+            of_a_kinds
+                .entry(card.value)
+                .and_modify(|v| *v += 1)
+                .or_insert(2);
+        }
+
+        // straights
+        // - check consecutive values
+        if prev_value + 1 != card.value {
+            // - check for low ace
+            if prev_value != 5 && card.value != ACE_VALUE {
+                is_straight = false;
+            }
+        }
+
+        prev_value = card.value;
+    }
 
     // determine hand type
     // - use characteristics from above to determine hand type
@@ -80,10 +116,10 @@ fn parse_card(card_str: &str) -> Card {
     let value = match value_str.parse::<u8>() {
         Ok(v) => v,
         Err(_) => match value_str {
-            "A" => 14,
-            "K" => 13,
-            "Q" => 12,
-            "J" => 11,
+            "A" => ACE_VALUE,
+            "K" => KING_VALUE,
+            "Q" => QUEEN_VALUE,
+            "J" => JACK_VALUE,
             _ => panic!("Malformed card string: {:?}", card_str),
         },
     };
