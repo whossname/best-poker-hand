@@ -80,10 +80,110 @@ fn parse_hand<'a>(hand_str: &'a str) -> Hand {
         .map(|card| parse_card(card))
         .collect();
 
-    // characterise hand
-    // - count cards of a kind
-    // - identify straights and flushes
+    let (suits, of_a_kinds, is_straight) = profile_hand(&mut cards);
+    let max_of_a_kind_count = of_a_kinds.values().max().unwrap_or(&0);
 
+    // determine hand type
+    // - use characteristics from above to determine hand type
+    let mut tie_breaker = Vec::new();
+    let card_values: Vec<u8> = cards.iter().rev().map(|c| c.value).collect();
+    let hand_type: HandType;
+
+    if is_straight && suits.len() == 1 {
+        // straight flush
+        hand_type = HandType::StraightFlush;
+        straight_tie_breaker(&cards, &mut tie_breaker);
+    } else if *max_of_a_kind_count == 4 {
+        // 4 of a kind
+        hand_type = HandType::FourOfAKind;
+        of_a_kind_tie_breaker(&of_a_kinds, &mut tie_breaker, &card_values);
+    } else if *max_of_a_kind_count == 3 && of_a_kinds.len() == 2 {
+        // full house
+        hand_type = HandType::FullHouse;
+
+        let mut pair_value = 0;
+        let mut triple_value = 0;
+
+        for (value, count) in of_a_kinds {
+            if count == 3 {
+                triple_value = value;
+            }
+            if count == 2 {
+                pair_value = value;
+            }
+        }
+        tie_breaker.push(triple_value);
+        tie_breaker.push(pair_value);
+    } else if suits.len() == 1 {
+        // flush
+        hand_type = HandType::Flush;
+        tie_breaker.extend(card_values.iter());
+    } else if is_straight {
+        // straight
+        hand_type = HandType::Straight;
+        straight_tie_breaker(&cards, &mut tie_breaker);
+    } else if *max_of_a_kind_count == 3 {
+        // three of a kind
+        hand_type = HandType::ThreeOfAKind;
+        of_a_kind_tie_breaker(&of_a_kinds, &mut tie_breaker, &card_values);
+    } else if of_a_kinds.len() == 2 {
+        // two pair
+        hand_type = HandType::TwoPair;
+
+        let mut keys: Vec<u8> = of_a_kinds.keys().cloned().collect();
+        keys.sort();
+        keys.reverse();
+
+        for pair in keys {
+            tie_breaker.push(pair);
+        }
+
+        tie_breaker.extend(card_values.iter());
+    } else if of_a_kinds.len() == 1 {
+        // one pair
+        hand_type = HandType::OnePair;
+        of_a_kind_tie_breaker(&of_a_kinds, &mut tie_breaker, &card_values);
+    } else {
+        // high card
+        hand_type = HandType::HighCard;
+        tie_breaker.extend(card_values.iter());
+    }
+
+    return Hand {
+        tie_breaker: tie_breaker,
+        input_string: hand_str,
+        hand_type: hand_type,
+    };
+}
+
+fn of_a_kind_tie_breaker(
+    of_a_kinds: &HashMap<u8, u8>,
+    tie_breaker: &mut Vec<u8>,
+    card_values: &Vec<u8>,
+) {
+    let value = of_a_kinds.keys().next().unwrap();
+    tie_breaker.push(*value);
+    tie_breaker.extend(card_values.iter());
+}
+
+fn straight_tie_breaker(cards: &Vec<Card>, tie_breaker: &mut Vec<u8>) {
+    let mut highest_card = &cards.first().unwrap().value;
+
+    // handle low ace
+    if *highest_card == ACE_VALUE {
+        let second_card = &cards[1].value;
+        if *second_card == 5 {
+            highest_card = second_card;
+        }
+    }
+
+    tie_breaker.push(*highest_card);
+}
+
+// characterise hand
+// - count cards of a kind
+// - identify straights and flushes
+fn profile_hand(cards: &mut Vec<Card>) -> (HashSet<Suit>, HashMap<u8, u8>, bool) {
     cards.sort_by_key(|c| c.value);
     let mut prev_value: u8 = 0;
 
@@ -114,116 +214,7 @@ fn parse_hand<'a>(hand_str: &'a str) -> Hand {
 
         prev_value = card.value;
     }
-
-    let max_of_a_kind_count = of_a_kinds.values().max().unwrap_or(&0);
-
-    // determine hand type
-    // - use characteristics from above to determine hand type
-    let mut tie_breaker = Vec::new();
-    let card_values: Vec<u8> = cards.iter().rev().map(|c| c.value).collect();
-    let hand_type: HandType;
-
-    if is_straight && suits.len() == 1 {
-        // straight flush
-        hand_type = HandType::StraightFlush;
-
-        // TODO same tie_breaker code for straight and straight flush
-        let mut highest_card = &cards.first().unwrap().value;
-
-        // handle low ace
-        if *highest_card == ACE_VALUE {
-            let second_card = &cards[1].value;
-            if *second_card == 5 {
-                highest_card = second_card;
-            }
-        }
-
-        tie_breaker.push(*highest_card);
-    } else if *max_of_a_kind_count == 4 {
-        // 4 of a kind
-        hand_type = HandType::FourOfAKind;
-
-        // TODO same tie_breaker code for 4, 3, 2 "of a kind"
-        let value = of_a_kinds.keys().next().unwrap();
-        tie_breaker.push(*value);
-        tie_breaker.extend(card_values.iter());
-    } else if *max_of_a_kind_count == 3 && of_a_kinds.len() == 2 {
-        // full house
-        hand_type = HandType::FullHouse;
-
-        let mut pair_value = 0;
-        let mut triple_value = 0;
-
-        for (value, count) in of_a_kinds {
-            if count == 3 {
-                triple_value = value;
-            }
-            if count == 2 {
-                pair_value = value;
-            }
-        }
-        tie_breaker.push(triple_value);
-        tie_breaker.push(pair_value);
-    } else if suits.len() == 1 {
-        // flush
-        hand_type = HandType::Flush;
-        tie_breaker.extend(card_values.iter());
-    } else if is_straight {
-        // straight
-        hand_type = HandType::Straight;
-
-        let mut highest_card = &cards.last().unwrap().value;
-
-        // handle low ace
-        if *highest_card == ACE_VALUE {
-            // FIX ME assumes hand has 5 cards
-            let second_card = &cards[3].value;
-            if *second_card == 5 {
-                highest_card = second_card;
-            }
-        }
-
-        tie_breaker.push(*highest_card);
-    } else if *max_of_a_kind_count == 3 {
-        // three of a kind
-        hand_type = HandType::ThreeOfAKind;
-
-        // only 1 of_a_kinds, otherwise it would be a full house
-        let triple_value = of_a_kinds.keys().next().unwrap();
-        tie_breaker.push(*triple_value);
-        tie_breaker.extend(card_values.iter());
-    } else if of_a_kinds.len() == 2 {
-        // two pair
-        hand_type = HandType::TwoPair;
-
-        let mut keys: Vec<u8> = of_a_kinds.keys().cloned().collect();
-        keys.sort();
-        keys.reverse();
-
-        for pair in keys {
-            tie_breaker.push(pair);
-        }
-
-        tie_breaker.extend(card_values.iter());
-    } else if of_a_kinds.len() == 1 {
-        // one pair
-        hand_type = HandType::OnePair;
-
-        let pair_value = of_a_kinds.keys().next().unwrap();
-        tie_breaker.push(*pair_value);
-        tie_breaker.extend(card_values.iter());
-    } else {
-        // high card
-        hand_type = HandType::HighCard;
-
-        tie_breaker.extend(card_values.iter());
-    }
-
-    return Hand {
-        tie_breaker: tie_breaker,
-        input_string: hand_str,
-        hand_type: hand_type,
-    };
+    (suits, of_a_kinds, is_straight)
 }
 
 fn parse_card(card_str: &str) -> Card {
