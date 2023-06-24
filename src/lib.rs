@@ -203,24 +203,25 @@ fn parse_hand<'a>(hand_str: &'a str) -> Hand {
 }
 
 fn parse_card(card_str: &str) -> Card {
-    let suit = match card_str.get(1..2) {
-        Some("C") => Suit::Club,
-        Some("S") => Suit::Spade,
-        Some("H") => Suit::Heart,
-        Some("D") => Suit::Diamond,
+    let mut card_chars = card_str.chars();
+    let suit_char = card_chars.next_back();
+
+    let suit = match suit_char {
+        Some('C') => Suit::Club,
+        Some('S') => Suit::Spade,
+        Some('H') => Suit::Heart,
+        Some('D') => Suit::Diamond,
         None => panic!("Malformed card string: {:?}", card_str),
         Some(_) => panic!("Malformed card string: {:?}", card_str),
     };
 
-    let value_str = card_str.get(0..1).unwrap();
-
-    let value = match value_str.parse::<u8>() {
+    let value = match card_chars.as_str().parse::<u8>() {
         Ok(v) => v,
-        Err(_) => match value_str {
-            "A" => ACE_VALUE,
-            "K" => KING_VALUE,
-            "Q" => QUEEN_VALUE,
-            "J" => JACK_VALUE,
+        Err(_) => match card_chars.next() {
+            Some('A') => ACE_VALUE,
+            Some('K') => KING_VALUE,
+            Some('Q') => QUEEN_VALUE,
+            Some('J') => JACK_VALUE,
             _ => panic!("Malformed card string: {:?}", card_str),
         },
     };
