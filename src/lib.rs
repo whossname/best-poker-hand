@@ -44,13 +44,16 @@ struct Hand<'a> {
 /// Note the type signature: this function should return _the same_ reference to
 /// the winning hand(s) as were passed in, not reconstructed strings which happen to be equal.
 pub fn winning_hands<'a>(hands: &[&'a str]) -> Option<Vec<&'a str>> {
-    let mut parsed_hands: Vec<Hand> = hands.iter().map(|hand| parse_hand(hand)).collect();
+    let parsed_hands: Vec<Hand> = hands.iter().map(|hand| parse_hand(hand)).collect();
 
     for hand_type in HandType::iter() {
         if parsed_hands.iter().any(|h| h.hand_type == hand_type) {
-            let winning_hands: Vec<&Hand> = parsed_hands.iter().filter(|h| h.hand_type == hand_type).collect();
-            let returned_hands: Vec<&'a str> = winning_hands.iter().map(|h| h.input_string).collect();
-            return Some(returned_hands);
+            let mut winning_hands: Vec<&Hand> = parsed_hands.iter().filter(|h| h.hand_type == hand_type).collect();
+            winning_hands.sort_by_key(|h| &h.tie_breaker);
+            let winning_tie_breaker: &Vec<u8> = winning_hands.first().unwrap().tie_breaker.as_ref();
+            let tie_brocken_hands: Vec<&&Hand> = winning_hands.iter().filter(|h| &h.tie_breaker == winning_tie_breaker).collect();
+            let winning_strings: Vec<&'a str> = tie_brocken_hands.iter().map(|h| h.input_string).collect();
+            return Some(winning_strings);
         }
     }
     return None;
