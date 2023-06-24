@@ -85,7 +85,7 @@ fn parse_hand<'a>(hand_str: &'a str) -> Hand {
     // - identify straights and flushes
 
     cards.sort_by_key(|c| c.value);
-    let mut prev_value: u8 = 1;
+    let mut prev_value: u8 = 0;
 
     let mut suits: HashSet<Suit> = HashSet::new();
     let mut of_a_kinds: HashMap<u8, u8> = HashMap::new();
@@ -105,7 +105,7 @@ fn parse_hand<'a>(hand_str: &'a str) -> Hand {
 
         // straights
         // - check consecutive values
-        if prev_value + 1 != card.value {
+        if prev_value + 1 != card.value && prev_value != 0 {
             // - check for low ace
             if prev_value != 5 && card.value != ACE_VALUE {
                 is_straight = false;
@@ -172,11 +172,12 @@ fn parse_hand<'a>(hand_str: &'a str) -> Hand {
         // straight
         hand_type = HandType::Straight;
 
-        let mut highest_card = &cards.first().unwrap().value;
+        let mut highest_card = &cards.last().unwrap().value;
 
         // handle low ace
         if *highest_card == ACE_VALUE {
-            let second_card = &cards[1].value;
+            // FIX ME assumes hand has 5 cards
+            let second_card = &cards[3].value;
             if *second_card == 5 {
                 highest_card = second_card;
             }
@@ -194,6 +195,16 @@ fn parse_hand<'a>(hand_str: &'a str) -> Hand {
     } else if of_a_kinds.len() == 2 {
         // two pair
         hand_type = HandType::TwoPair;
+
+        let mut keys: Vec<u8> = of_a_kinds.keys().cloned().collect();
+        keys.sort();
+        keys.reverse();
+
+        for pair in keys {
+            tie_breaker.push(pair);
+        }
+
+        tie_breaker.extend(card_values.iter());
     } else if of_a_kinds.len() == 1 {
         // one pair
         hand_type = HandType::OnePair;
