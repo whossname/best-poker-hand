@@ -5,7 +5,7 @@ const KING_VALUE: u8 = 13;
 const QUEEN_VALUE: u8 = 12;
 const JACK_VALUE: u8 = 11;
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Eq, Hash, PartialEq, Clone, Copy)]
 enum Suit {
     Spade,
     Club,
@@ -65,7 +65,7 @@ fn parse_hand<'a>(hand_str: &'a str) -> Hand {
     let mut of_a_kinds: HashMap<u8, u8> = HashMap::new();
     let mut is_straight = true;
 
-    for card in cards {
+    for card in cards.iter() {
         // flush
         suits.insert(card.suit);
 
@@ -89,10 +89,98 @@ fn parse_hand<'a>(hand_str: &'a str) -> Hand {
         prev_value = card.value;
     }
 
+    let max_of_a_kind_count = of_a_kinds.values().max().unwrap_or(&0);
+
     // determine hand type
     // - use characteristics from above to determine hand type
     let mut tie_breaker = Vec::new();
-    let hand_type = HandType::Flush;
+    let mut card_values: Vec<u8> = cards.iter().rev().map(|c| c.value).collect();
+    let mut hand_type = HandType::HighCard;
+
+    if is_straight && suits.len() == 1 {
+        // straight flush
+        hand_type = HandType::StraightFlush;
+
+        // TODO same tie_breaker code for straight and straight flush
+        let mut highest_card = &cards.first().unwrap().value;
+
+        // handle low ace
+        if *highest_card == ACE_VALUE {
+            let second_card = &cards[1].value;
+            if *second_card == 5 {
+                highest_card = second_card;
+            }
+        }
+
+        tie_breaker.push(*highest_card);
+    } else if *max_of_a_kind_count == 4 {
+        // 4 of a kind
+        hand_type = HandType::FourOfAKind;
+
+        // TODO same tie_breaker code for 4, 3, 2 "of a kind"
+        let value = of_a_kinds.keys().next().unwrap();
+        tie_breaker.push(*value);
+        tie_breaker.extend(card_values.iter());
+    } else if *max_of_a_kind_count == 3 && of_a_kinds.len() == 2 {
+        // full house
+        hand_type = HandType::FullHouse;
+
+        let mut pair_value = 0;
+        let mut triple_value = 0;
+
+        for (value, count) in of_a_kinds {
+            if count == 3 {
+                triple_value = value;
+            }
+            if count == 2 {
+                pair_value = value;
+            }
+        }
+        tie_breaker.push(triple_value);
+        tie_breaker.push(pair_value);
+    } else if suits.len() == 1 {
+        // flush
+        hand_type = HandType::Flush;
+        tie_breaker.extend(card_values.iter());
+    } else if is_straight {
+        // straight
+        hand_type = HandType::Straight;
+
+        let mut highest_card = &cards.first().unwrap().value;
+
+        // handle low ace
+        if *highest_card == ACE_VALUE {
+            let second_card = &cards[1].value;
+            if *second_card == 5 {
+                highest_card = second_card;
+            }
+        }
+
+        tie_breaker.push(*highest_card);
+    } else if *max_of_a_kind_count == 3 {
+        // three of a kind
+        hand_type = HandType::ThreeOfAKind;
+
+        // only 1 of_a_kinds, otherwise it would be a full house
+        let triple_value = of_a_kinds.keys().next().unwrap();
+        tie_breaker.push(*triple_value);
+        tie_breaker.extend(card_values.iter());
+    } else if of_a_kinds.len() == 2 {
+        // two pair
+        hand_type = HandType::TwoPair;
+    } else if of_a_kinds.len() == 1 {
+        // one pair
+        hand_type = HandType::OnePair;
+
+        let pair_value = of_a_kinds.keys().next().unwrap();
+        tie_breaker.push(*pair_value);
+        tie_breaker.extend(card_values.iter());
+    } else {
+        // high card
+        hand_type = HandType::HighCard;
+
+        tie_breaker.extend(card_values.iter());
+    }
 
     return Hand {
         tie_breaker: tie_breaker,
