@@ -1,4 +1,6 @@
 use std::collections::{HashMap, HashSet};
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 
 const ACE_VALUE: u8 = 14;
 const KING_VALUE: u8 = 13;
@@ -18,6 +20,7 @@ struct Card {
     suit: Suit,
 }
 
+#[derive(PartialEq, EnumIter)]
 enum HandType {
     StraightFlush,
     FourOfAKind,
@@ -41,9 +44,16 @@ struct Hand<'a> {
 /// Note the type signature: this function should return _the same_ reference to
 /// the winning hand(s) as were passed in, not reconstructed strings which happen to be equal.
 pub fn winning_hands<'a>(hands: &[&'a str]) -> Option<Vec<&'a str>> {
-    let parsed_hands = hands.iter().map(|hand| parse_hand(hand));
+    let mut parsed_hands: Vec<Hand> = hands.iter().map(|hand| parse_hand(hand)).collect();
 
-    unimplemented!("Out of {:?}, which hand wins?", hands)
+    for hand_type in HandType::iter() {
+        if parsed_hands.iter().any(|h| h.hand_type == hand_type) {
+            let winning_hands: Vec<&Hand> = parsed_hands.iter().filter(|h| h.hand_type == hand_type).collect();
+            let returned_hands: Vec<&'a str> = winning_hands.iter().map(|h| h.input_string).collect();
+            return Some(returned_hands);
+        }
+    }
+    return None;
 }
 
 fn parse_hand<'a>(hand_str: &'a str) -> Hand {
@@ -94,8 +104,8 @@ fn parse_hand<'a>(hand_str: &'a str) -> Hand {
     // determine hand type
     // - use characteristics from above to determine hand type
     let mut tie_breaker = Vec::new();
-    let mut card_values: Vec<u8> = cards.iter().rev().map(|c| c.value).collect();
-    let mut hand_type = HandType::HighCard;
+    let card_values: Vec<u8> = cards.iter().rev().map(|c| c.value).collect();
+    let hand_type: HandType;
 
     if is_straight && suits.len() == 1 {
         // straight flush
