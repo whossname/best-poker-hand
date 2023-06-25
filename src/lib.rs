@@ -5,7 +5,7 @@ const KING_VALUE: u8 = 13;
 const QUEEN_VALUE: u8 = 12;
 const JACK_VALUE: u8 = 11;
 
-#[derive(Eq, Hash, PartialEq, Clone, Copy)]
+#[derive(Eq, Hash, PartialEq, Clone, Copy, Debug)]
 enum Suit {
     Spade,
     Club,
@@ -13,6 +13,7 @@ enum Suit {
     Diamond,
 }
 
+#[derive(Debug)]
 struct Card {
     value: u8,
     suit: Suit,
@@ -178,11 +179,12 @@ fn of_a_kind_tie_breaker(
 }
 
 fn straight_tie_breaker(cards: &Vec<Card>, tie_breaker: &mut Vec<u8>) {
-    let mut highest_card = &cards.first().unwrap().value;
+    let mut highest_card = &cards.last().unwrap().value;
 
     // handle low ace
     if *highest_card == ACE_VALUE {
-        let second_card = &cards[1].value;
+        // FIX ME assumes hand has 5 cards
+        let second_card = &cards[3].value;
         if *second_card == 5 {
             highest_card = second_card;
         }
