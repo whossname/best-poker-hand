@@ -40,7 +40,10 @@ struct Hand<'a> {
     hand_type: HandType,
 }
 
-type HandProfile = (HashSet<Suit>, HashMap<u8, u8>, bool);
+type Suits = HashSet<Suit>;
+type OfAKinds = HashMap<u8, u8>;
+type IsStraight = bool;
+type HandProfile = (Suits, OfAKinds, IsStraight);
 
 /// Given a list of poker hands, return a list of those hands which win.
 ///
@@ -82,7 +85,7 @@ fn parse_hand<'a>(hand_str: &'a str) -> Hand {
         .map(|card| parse_card(card))
         .collect();
 
-    let profile = profile_hand(&mut cards);
+    let profile: HandProfile = profile_hand(&mut cards);
 
     let (tie_breaker, hand_type) = determine_hand_type(profile, cards);
 
