@@ -40,6 +40,8 @@ struct Hand<'a> {
     hand_type: HandType,
 }
 
+type HandProfile = (HashSet<Suit>, HashMap<u8, u8>, bool);
+
 /// Given a list of poker hands, return a list of those hands which win.
 ///
 /// Note the type signature: this function should return _the same_ reference to
@@ -80,11 +82,21 @@ fn parse_hand<'a>(hand_str: &'a str) -> Hand {
         .map(|card| parse_card(card))
         .collect();
 
-    let (suits, of_a_kinds, is_straight) = profile_hand(&mut cards);
+    let profile = profile_hand(&mut cards);
+
+    let (tie_breaker, hand_type) = determine_hand_type(profile, cards);
+
+    return Hand {
+        tie_breaker: tie_breaker,
+        input_string: hand_str,
+        hand_type: hand_type,
+    };
+}
+
+fn determine_hand_type(profile: HandProfile, cards: Vec<Card>) -> (Vec<u8>, HandType) {
+    let (suits, of_a_kinds, is_straight) = profile;
     let max_of_a_kind_count = of_a_kinds.values().max().unwrap_or(&0);
 
-    // determine hand type
-    // - use characteristics from above to determine hand type
     let mut tie_breaker = Vec::new();
     let card_values: Vec<u8> = cards.iter().rev().map(|c| c.value).collect();
     let hand_type: HandType;
@@ -100,20 +112,7 @@ fn parse_hand<'a>(hand_str: &'a str) -> Hand {
     } else if *max_of_a_kind_count == 3 && of_a_kinds.len() == 2 {
         // full house
         hand_type = HandType::FullHouse;
-
-        let mut pair_value = 0;
-        let mut triple_value = 0;
-
-        for (value, count) in of_a_kinds {
-            if count == 3 {
-                triple_value = value;
-            }
-            if count == 2 {
-                pair_value = value;
-            }
-        }
-        tie_breaker.push(triple_value);
-        tie_breaker.push(pair_value);
+        full_house_tie_breaker(&of_a_kinds, &mut tie_breaker);
     } else if suits.len() == 1 {
         // flush
         hand_type = HandType::Flush;
@@ -129,16 +128,7 @@ fn parse_hand<'a>(hand_str: &'a str) -> Hand {
     } else if of_a_kinds.len() == 2 {
         // two pair
         hand_type = HandType::TwoPair;
-
-        let mut keys: Vec<u8> = of_a_kinds.keys().cloned().collect();
-        keys.sort();
-        keys.reverse();
-
-        for pair in keys {
-            tie_breaker.push(pair);
-        }
-
-        tie_breaker.extend(card_values.iter());
+        two_pair_tie_breaker(&of_a_kinds, &mut tie_breaker, &card_values);
     } else if of_a_kinds.len() == 1 {
         // one pair
         hand_type = HandType::OnePair;
@@ -148,12 +138,39 @@ fn parse_hand<'a>(hand_str: &'a str) -> Hand {
         hand_type = HandType::HighCard;
         tie_breaker.extend(card_values.iter());
     }
+    (tie_breaker, hand_type)
+}
 
-    return Hand {
-        tie_breaker: tie_breaker,
-        input_string: hand_str,
-        hand_type: hand_type,
-    };
+fn two_pair_tie_breaker(
+    of_a_kinds: &HashMap<u8, u8>,
+    tie_breaker: &mut Vec<u8>,
+    card_values: &Vec<u8>,
+) {
+    let mut keys: Vec<u8> = of_a_kinds.keys().cloned().collect();
+    keys.sort();
+    keys.reverse();
+
+    for pair in keys {
+        tie_breaker.push(pair);
+    }
+
+    tie_breaker.extend(card_values.iter());
+}
+
+fn full_house_tie_breaker(of_a_kinds: &HashMap<u8, u8>, tie_breaker: &mut Vec<u8>) {
+    let mut pair_value = 0;
+    let mut triple_value = 0;
+
+    for (value, count) in of_a_kinds {
+        if *count == 3 {
+            triple_value = *value;
+        }
+        if *count == 2 {
+            pair_value = *value;
+        }
+    }
+    tie_breaker.push(triple_value);
+    tie_breaker.push(pair_value);
 }
 
 fn of_a_kind_tie_breaker(
@@ -183,7 +200,7 @@ fn straight_tie_breaker(cards: &Vec<Card>, tie_breaker: &mut Vec<u8>) {
 // characterise hand
 // - count cards of a kind
 // - identify straights and flushes
-fn profile_hand(cards: &mut Vec<Card>) -> (HashSet<Suit>, HashMap<u8, u8>, bool) {
+fn profile_hand(cards: &mut Vec<Card>) -> HandProfile {
     cards.sort_by_key(|c| c.value);
     let mut prev_value: u8 = 0;
 
