@@ -1,6 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
 
 const ACE_VALUE: u8 = 14;
 const KING_VALUE: u8 = 13;
@@ -20,24 +18,24 @@ struct Card {
     suit: Suit,
 }
 
-#[derive(PartialEq, EnumIter, Debug)]
+#[derive(Ord, Eq, PartialEq, PartialOrd, Debug)]
 enum HandType {
-    StraightFlush,
-    FourOfAKind,
-    FullHouse,
-    Flush,
-    Straight,
-    ThreeOfAKind,
-    TwoPair,
-    OnePair,
     HighCard,
+    OnePair,
+    TwoPair,
+    ThreeOfAKind,
+    Straight,
+    Flush,
+    FullHouse,
+    FourOfAKind,
+    StraightFlush,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
 struct Hand<'a> {
+    hand_type: HandType,
     tie_breaker: Vec<u8>,
     input_string: &'a str,
-    hand_type: HandType,
 }
 
 type Suits = HashSet<Suit>;
@@ -50,31 +48,24 @@ type HandProfile = (Suits, OfAKinds, IsStraight);
 /// Note the type signature: this function should return _the same_ reference to
 /// the winning hand(s) as were passed in, not reconstructed strings which happen to be equal.
 pub fn winning_hands<'a>(hands: &[&'a str]) -> Option<Vec<&'a str>> {
-    let parsed_hands: Vec<Hand> = hands.iter().map(|hand| parse_hand(hand)).collect();
+    let mut parsed_hands: Vec<Hand> = hands.iter().map(|hand| parse_hand(hand)).collect();
+    parsed_hands.sort();
+    parsed_hands.reverse();
 
-    for hand_type in HandType::iter() {
-        if parsed_hands.iter().any(|h| h.hand_type == hand_type) {
-            let mut winners: Vec<&Hand> = parsed_hands
-                .iter()
-                .filter(|h| h.hand_type == hand_type)
-                .collect();
+    let first_hand = match parsed_hands.first() {
+        None => return None,
+        Some(x) => x,
+    };
 
-            // tie breaker
-            winners.sort_by_key(|h| &h.tie_breaker);
-            let winning_tie_breaker: &Vec<u8> = winners.last().unwrap().tie_breaker.as_ref();
+    let winners: Vec<&Hand> = parsed_hands
+        .iter()
+        .take_while(|h| {
+            first_hand.hand_type == h.hand_type && first_hand.tie_breaker == h.tie_breaker
+        })
+        .collect();
 
-            let tie_brocken_hands: Vec<&&Hand> = winners
-                .iter()
-                .filter(|h| &h.tie_breaker == winning_tie_breaker)
-                .collect();
-
-            // return input string of the winning hands
-            let winning_strings: Vec<&'a str> =
-                tie_brocken_hands.iter().map(|h| h.input_string).collect();
-            return Some(winning_strings);
-        }
-    }
-    return None;
+    let winning_strings: Vec<&'a str> = winners.iter().map(|h| h.input_string).collect();
+    return Some(winning_strings);
 }
 
 fn parse_hand<'a>(hand_str: &'a str) -> Hand {
