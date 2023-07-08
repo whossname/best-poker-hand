@@ -51,18 +51,21 @@ type HandProfile = (Suits, OfAKinds, IsStraight);
 pub fn winning_hands<'a>(hands: &[&'a str]) -> Option<Vec<&'a str>> {
     let mut parsed_hands: Vec<Hand> = hands.iter().map(|hand| parse_hand(hand)).collect();
     parsed_hands.sort();
-    parsed_hands.reverse();
 
-    let (winning_hand_type, winning_tie_breaker) = match parsed_hands.first() {
+    let winner = match parsed_hands.pop() {
         None => return None,
-        Some(x) => (x.hand_type.clone(), x.tie_breaker.clone()),
+        Some(x) => x,
     };
 
-    let winning_strings = parsed_hands
+    parsed_hands.reverse();
+
+    let mut winning_strings: Vec<&'a str> = parsed_hands
         .drain(..)
-        .take_while(|h| winning_hand_type == h.hand_type && winning_tie_breaker == h.tie_breaker)
+        .take_while(|h| winner.hand_type == h.hand_type && winner.tie_breaker == h.tie_breaker)
         .map(|h| h.input_string)
         .collect();
+
+    winning_strings.push(winner.input_string);
 
     return Some(winning_strings);
 }
