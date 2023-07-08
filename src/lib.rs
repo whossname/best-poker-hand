@@ -19,7 +19,7 @@ struct Card {
     suit: Suit,
 }
 
-#[derive(Ord, Eq, PartialEq, PartialOrd, Debug)]
+#[derive(Ord, Eq, PartialEq, PartialOrd, Clone, Copy, Debug)]
 enum HandType {
     HighCard,
     OnePair,
@@ -53,16 +53,14 @@ pub fn winning_hands<'a>(hands: &[&'a str]) -> Option<Vec<&'a str>> {
     parsed_hands.sort();
     parsed_hands.reverse();
 
-    let first_hand = match parsed_hands.first() {
+    let (winning_hand_type, winning_tie_breaker) = match parsed_hands.first() {
         None => return None,
-        Some(x) => x,
+        Some(x) => (x.hand_type.clone(), x.tie_breaker.clone()),
     };
 
-    let winners: Vec<&Hand> = parsed_hands
-        .iter()
-        .take_while(|h| {
-            first_hand.hand_type == h.hand_type && first_hand.tie_breaker == h.tie_breaker
-        })
+    let winners: Vec<Hand> = parsed_hands
+        .drain(..)
+        .take_while(|h| winning_hand_type == h.hand_type && winning_tie_breaker == h.tie_breaker)
         .collect();
 
     let winning_strings: Vec<&'a str> = winners.iter().map(|h| h.input_string).collect();
