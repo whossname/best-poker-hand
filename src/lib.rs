@@ -58,12 +58,12 @@ pub fn winning_hands<'a>(hands: &[&'a str]) -> Option<Vec<&'a str>> {
         Some(x) => (x.hand_type.clone(), x.tie_breaker.clone()),
     };
 
-    let winners: Vec<Hand> = parsed_hands
+    let winning_strings = parsed_hands
         .drain(..)
         .take_while(|h| winning_hand_type == h.hand_type && winning_tie_breaker == h.tie_breaker)
+        .map(|h| h.input_string)
         .collect();
 
-    let winning_strings: Vec<&'a str> = winners.iter().map(|h| h.input_string).collect();
     return Some(winning_strings);
 }
 
